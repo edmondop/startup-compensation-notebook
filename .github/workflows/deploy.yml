@@ -30,7 +30,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install marimo
-        run: uv pip install --system marimo polars plotly
+        run: uv pip install --system marimo polars plotly numpy starlette
 
       - name: Validate notebook
         run: marimo check notebook.py
@@ -51,7 +51,9 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install marimo and dependencies
-        run: uv pip install --system marimo polars plotly
+        run: |
+          uv pip install --system marimo polars plotly numpy
+          uv pip install --system starlette
 
       - name: Export notebook as WASM app
         run: marimo export html-wasm notebook.py -o dist --mode run
