@@ -11,7 +11,7 @@
 
 import marimo
 
-__generated_with = "0.16.4"
+__generated_with = "0.16.5"
 app = marimo.App(width="medium")
 
 
@@ -1302,7 +1302,7 @@ def _(go):
                 customdata=hover_text,
                 hovertemplate="%{customdata}<extra></extra>",
                 texttemplate="%{text}",
-                textfont={"size": 10},
+                textfont={"size": 10, "family": "Arial Black, sans-serif"},
                 colorbar=dict(title="Loss-Adjusted Gain ($)"),
             )
         )
@@ -1313,7 +1313,7 @@ def _(go):
             xref="paper",
             yref="paper",
             x=0.5,
-            y=1.05,
+            y=1.12,
             showarrow=False,
             font=dict(size=14, color="blue"),
         )
