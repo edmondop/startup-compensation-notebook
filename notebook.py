@@ -12,7 +12,10 @@
 import marimo
 
 __generated_with = "0.16.5"
-app = marimo.App(width="medium")
+app = marimo.App(
+    width="medium",
+    app_title="Startup Equity Compensation Analysis",
+)
 
 
 @app.cell
@@ -136,8 +139,9 @@ def _(dataclass):
     class FinancialParameters:
         years_to_exit: int
         total_dilution_pct: float
-        discount_rate: float = 0.08
-        capital_gains_tax: float = 0.238
+        discount_rate: float
+        income_tax_rate: float
+        capital_gains_tax: float
         retirement_horizon_years: int = 20
         retirement_growth_rate: float = 1.10
 
@@ -637,23 +641,54 @@ def _(mo):
     )
 
     years_to_exit = mo.ui.slider(
-        label="Years to Exit", start=1, stop=10, step=1, value=5, show_value=True
+        label="Years to Exit (typical vesting horizon)", start=1, stop=10, step=1, value=4, show_value=True
+    )
+
+    income_tax_rate = mo.ui.slider(
+        label="Income Tax Rate (%)", start=0, stop=50, step=1, value=30, show_value=True
+    )
+
+    capital_gains_tax_rate = mo.ui.slider(
+        label="Capital Gains Tax Rate (%)", start=0, stop=40, step=1, value=23.8, show_value=True
+    )
+
+    discount_rate = mo.ui.slider(
+        label="Discount Rate (%)", start=0, stop=15, step=0.5, value=2, show_value=True
     )
 
     mo.accordion(
         {
             "## Financial Assumptions": mo.vstack(
-                [exit_multipliers_input, total_dilution, years_to_exit]
+                [exit_multipliers_input, total_dilution, years_to_exit, income_tax_rate, capital_gains_tax_rate, discount_rate]
             )
         }
     )
-    return exit_multipliers_input, total_dilution, years_to_exit
+    return (
+        capital_gains_tax_rate,
+        discount_rate,
+        exit_multipliers_input,
+        income_tax_rate,
+        total_dilution,
+        years_to_exit,
+    )
 
 
 @app.cell
-def _(FinancialParameters, mo, total_dilution, years_to_exit):
+def _(
+    FinancialParameters,
+    capital_gains_tax_rate,
+    discount_rate,
+    income_tax_rate,
+    mo,
+    total_dilution,
+    years_to_exit,
+):
     financial_params = FinancialParameters(
-        years_to_exit=years_to_exit.value, total_dilution_pct=total_dilution.value
+        years_to_exit=years_to_exit.value,
+        total_dilution_pct=total_dilution.value,
+        discount_rate=discount_rate.value / 100,
+        income_tax_rate=income_tax_rate.value / 100,
+        capital_gains_tax=capital_gains_tax_rate.value / 100,
     )
 
     mo.md(
@@ -677,18 +712,15 @@ def _(ExitScenario, List, Tuple):
         for t in range(1, years + 1):
             year_comp = current_comp.total_cash_comp
             year_comp *= (1 + current_comp.expected_annual_raise_pct / 100) ** (t - 1)
-            if t == 2:
-                year_comp *= 1 + (current_comp.promotion_probability / 100) * (
-                    current_comp.promotion_comp_increase_pct / 100
-                )
-            current_npv += year_comp / (1 + discount_rate) ** t
+            after_tax_comp = year_comp * (1 - financial_params.income_tax_rate)
+            current_npv += after_tax_comp / (1 + discount_rate) ** t
 
-        startup_cash_npv = sum(
-            [
-                startup_offer.total_cash_comp / (1 + discount_rate) ** t
-                for t in range(1, years + 1)
-            ]
-        )
+        startup_cash_npv = 0
+        for t in range(1, years + 1):
+            year_comp = startup_offer.total_cash_comp
+            year_comp *= (1 + current_comp.expected_annual_raise_pct / 100) ** (t - 1)
+            after_tax_comp = year_comp * (1 - financial_params.income_tax_rate)
+            startup_cash_npv += after_tax_comp / (1 + discount_rate) ** t
 
         final_equity_pct = (
             startup_offer.initial_equity_percentage
@@ -967,23 +999,70 @@ def _(
 
 
 @app.cell
-def _(kahneman_multiplier, mo):
-    mo.md(
-        f"""
-    ## Results
+def _(
+    current_comp,
+    current_npv,
+    financial_params,
+    mo,
+    pl,
+    startup_cash_npv,
+    startup_offer,
+):
+    # Build year-by-year compensation table
+    _years = financial_params.years_to_exit
+    _discount_rate = financial_params.discount_rate
+    _income_tax = financial_params.income_tax_rate
 
-    The heatmap shows whether the startup offer is rational at different exit scenarios:
+    _table_rows = []
+    _raise_pct = current_comp.expected_annual_raise_pct / 100
 
-    - **Cell value & color**: Loss-adjusted gain/loss (expected NPV - current NPV × {kahneman_multiplier:.1f})
-      - Green = rational decision (compensates for loss aversion)
-      - Red = irrational decision (doesn't justify the risk)
+    for t in range(1, _years + 1):
+        # Current job - apply simple annual raise
+        if t == 1:
+            _current_year = current_comp.total_cash_comp
+            _current_note = "Base"
+        else:
+            _current_year = current_comp.total_cash_comp * (1 + _raise_pct) ** (t - 1)
+            _current_note = f"{_raise_pct*100:.0f}% annual"
 
-    - **Hover for details**: Shows all the NPV values and comparisons:
-      - Your expected startup NPV at this exit scenario
-      - Current job NPV (flat salary vs with career growth)
-      - Three comparisons: vs flat, vs growth, and loss-adjusted
-    """
-    )
+        _current_after_tax = _current_year * (1 - _income_tax)
+        _current_pv = _current_after_tax / (1 + _discount_rate) ** t
+
+        # Startup - same annual raise
+        if t == 1:
+            _startup_year = startup_offer.total_cash_comp
+        else:
+            _startup_year = startup_offer.total_cash_comp * (1 + _raise_pct) ** (t - 1)
+
+        _startup_after_tax = _startup_year * (1 - _income_tax)
+        _startup_pv = _startup_after_tax / (1 + _discount_rate) ** t
+
+        _table_rows.append({
+            "Year": t,
+            "Current (pre-tax)": f"${_current_year:,.0f}",
+            "Growth": _current_note,
+            "Current (after tax)": f"${_current_after_tax:,.0f}",
+            "Current PV": f"${_current_pv:,.0f}",
+            "Startup (pre-tax)": f"${_startup_year:,.0f}",
+            "Startup (after tax)": f"${_startup_after_tax:,.0f}",
+            "Startup PV": f"${_startup_pv:,.0f}",
+            "Diff (PV)": f"${_current_pv - _startup_pv:+,.0f}",
+        })
+
+    _comp_table_df = pl.DataFrame(_table_rows)
+
+    mo.vstack([
+        mo.md("## Compensation Summary"),
+        mo.md(f"**Tax:** {_income_tax * 100:.0f}% | **Discount:** {_discount_rate * 100:.1f}% | **Years:** {_years}"),
+        mo.ui.table(_comp_table_df.to_pandas()),
+        mo.md(f"**Total Current NPV:** ${current_npv:,.0f} | **Startup Liquid Compensation NPV:** ${startup_cash_npv:,.0f} | **Diff:** ${current_npv - startup_cash_npv:+,.0f}")
+    ])
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md("## Results")
     return
 
 
@@ -1219,7 +1298,7 @@ def _(go):
         current_comp,
     ):
         exit_multiples_hm = [2, 5, 10, 15, 20, 30, 50]
-        probabilities_hm = [1, 2, 5, 10, 20, 30, 50, 75, 100]
+        probabilities_hm = [1, 2, 5, 10, 20, 30, 50, 75]
 
         years = financial_params.years_to_exit
         discount_rate = financial_params.discount_rate
@@ -1251,35 +1330,43 @@ def _(go):
                 )
 
                 prob_pct = prob / 100
-                expected_npv = (
-                    prob_pct * (startup_cash_npv + exit_npv)
-                    + (1 - prob_pct) * startup_cash_npv
-                )
 
+                # Prospect Theory: evaluate success and failure outcomes separately
+                success_npv = startup_cash_npv + exit_npv
+                success_outcome = success_npv - current_npv
+
+                failure_npv = startup_cash_npv
+                failure_outcome = failure_npv - current_npv
+
+                # Apply value function
+                success_value = success_outcome if success_outcome >= 0 else success_outcome * kahneman_multiplier
+                failure_value = failure_outcome if failure_outcome >= 0 else failure_outcome * kahneman_multiplier
+
+                # Expected prospect value
+                loss_adjusted_growth = prob_pct * success_value + (1 - prob_pct) * failure_value
+
+                # Simple expected NPV for comparison
+                expected_npv = prob_pct * success_npv + (1 - prob_pct) * failure_npv
                 base_diff = expected_npv - current_npv
-                flat_diff = expected_npv - current_npv_flat
-                loss_adjusted_flat = expected_npv - (
-                    current_npv_flat * kahneman_multiplier
-                )
-                loss_adjusted_growth = expected_npv - (
-                    current_npv * kahneman_multiplier
-                )
 
                 row_color.append(loss_adjusted_growth)
                 row_display.append(loss_adjusted_growth)
 
                 hover = (
-                    f"<b>Exit Scenario: {mult}x @ {prob}% probability</b><br><br>"
-                    f"━━━ RISK-ADJUSTED EXPECTED VALUE ({kahneman_multiplier:.1f}x loss aversion) ━━━<br>"
-                    f"<b>vs Current job (with career growth):</b> ${loss_adjusted_growth / 1e6:.2f}M<br>"
-                    f"<b>vs Current job (no career growth):</b> ${loss_adjusted_flat / 1e6:.2f}M<br><br>"
-                    f"━━━ EXPECTED VALUE (no risk adjustment) ━━━<br>"
-                    f"<b>vs Current job (with career growth):</b> ${base_diff / 1e6:.2f}M<br>"
-                    f"<b>vs Current job (no career growth):</b> ${flat_diff / 1e6:.2f}M<br><br>"
-                    f"━━━ UNDERLYING NPV VALUES ━━━<br>"
-                    f"Startup expected NPV: ${expected_npv / 1e6:.2f}M<br>"
-                    f"Current job (growth): ${current_npv / 1e6:.2f}M<br>"
-                    f"Current job (flat): ${current_npv_flat / 1e6:.2f}M"
+                    f"<b>{mult}x exit @ {prob}% probability</b><br><br>"
+                    f"<b>If Success ({prob}%):</b><br>"
+                    f"  Equity NPV: ${exit_npv / 1e6:.2f}M<br>"
+                    f"  Startup salary NPV: ${startup_cash_npv / 1e6:.2f}M<br>"
+                    f"  Total: ${success_npv / 1e6:.2f}M<br>"
+                    f"  vs Current job: ${current_npv / 1e6:.2f}M<br>"
+                    f"  → Gain/Loss: ${success_outcome / 1e6:+.2f}M<br><br>"
+                    f"<b>If Failure ({100-prob}%):</b><br>"
+                    f"  Equity NPV: $0.00M<br>"
+                    f"  Startup salary NPV: ${startup_cash_npv / 1e6:.2f}M<br>"
+                    f"  Total: ${failure_npv / 1e6:.2f}M<br>"
+                    f"  vs Current job: ${current_npv / 1e6:.2f}M<br>"
+                    f"  → Loss: ${failure_outcome / 1e6:+.2f}M (×{kahneman_multiplier:.1f} = ${failure_value / 1e6:.2f}M)<br><br>"
+                    f"<b>Expected Prospect Value: ${loss_adjusted_growth / 1e6:.2f}M</b><br>"
                 )
                 row_hover.append(hover)
 
