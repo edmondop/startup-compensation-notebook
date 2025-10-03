@@ -1,3 +1,14 @@
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "marimo",
+#     "numpy==2.3.3",
+#     "plotly==6.3.1",
+#     "polars==1.34.0",
+#     "pyarrow==21.0.0",
+# ]
+# ///
+
 import marimo
 
 __generated_with = "0.16.4"
@@ -157,60 +168,36 @@ def _(go, np):
             return max(1.2, 1.5 - 0.3 * np.log10(net_worth / 10_000_000))
 
     def create_kahneman_curve(net_worth: float, custom_multiplier: float = None):
-        x = np.linspace(-100, 100, 1000)
         multiplier = (
             custom_multiplier
             if custom_multiplier is not None
             else calculate_kahneman_multiplier(net_worth)
         )
 
-        y = np.where(x >= 0, x**0.88, -multiplier * ((-x) ** 0.88))
-
+        # Simple bar chart showing the asymmetry
         fig = go.Figure()
 
+        # Show that to offset a $100k loss, you need a much bigger gain
+        loss_amount = 100
+        gain_needed = loss_amount * multiplier
+
         fig.add_trace(
-            go.Scatter(
-                x=x,
-                y=y,
-                mode="lines",
-                line=dict(color="#E60023", width=3),
-                name="Value Function",
+            go.Bar(
+                x=["Loss", "Gain Needed<br>to Feel Equivalent"],
+                y=[loss_amount, gain_needed],
+                marker_color=["#FF4444", "#2E7D32"],
+                text=[f"${loss_amount}k", f"${gain_needed:.0f}k"],
+                textposition="outside",
+                hovertemplate="$%{y:,.0f}k<extra></extra>",
             )
-        )
-
-        if custom_multiplier is None and abs(multiplier - 2.5) > 0.1:
-            y_standard = np.where(x >= 0, x**0.88, -2.5 * ((-x) ** 0.88))
-            fig.add_trace(
-                go.Scatter(
-                    x=x,
-                    y=y_standard,
-                    mode="lines",
-                    line=dict(color="gray", width=2, dash="dash"),
-                    name="Standard (2.5x)",
-                    opacity=0.5,
-                )
-            )
-
-        fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
-        fig.add_vline(x=0, line_dash="dash", line_color="gray", opacity=0.5)
-
-        fig.add_annotation(
-            x=-50,
-            y=-50,
-            text=f"Loss aversion multiplier: {multiplier:.2f}x",
-            showarrow=True,
-            arrowhead=2,
-            ax=40,
-            ay=-40,
-            font=dict(size=12, color="#E60023"),
         )
 
         fig.update_layout(
-            title="Prospect Theory Value Function (Kahneman, 2011)",
-            xaxis_title="Gains/Losses ($k)",
-            yaxis_title="Psychological Value",
+            title=f"Loss Aversion Multiplier: {multiplier:.1f}x",
+            yaxis_title="Dollar Amount (thousands)",
             template="plotly_white",
-            height=400,
+            height=500,
+            showlegend=False,
         )
 
         return fig
@@ -224,72 +211,7 @@ def _(mo):
 
 
 @app.cell
-def _(mo):
-    mo.accordion(
-        {
-            "What This Tool Does": mo.md(
-                r"""
-        This notebook helps you make a rational decision about startup equity offers by quantifying all the factors you should consider:
-
-        **Compensation Factors:**
-        - **Current total compensation** - base, bonus, RSUs/stock
-        - **Career progression** - expected raises, promotion probability and impact
-        - **Tax-advantaged retirement** - 401k matching, mega backdoor Roth (up to $32,500/year after-tax)
-        - **Compensation growth** - larger organizations typically offer more predictable advancement
-
-        **Startup Equity Considerations:**
-        - **Equity structure** - number of shares, current fair market value, strike price
-        - **Ownership dilution** - future funding rounds reduce your percentage ownership
-        - **Exit probability** - most startups fail; we model realistic success rates
-        - **Exit valuation** - multiple scenarios from modest to exceptional outcomes
-        - **Tax treatment** - exercise costs, AMT implications, capital gains
-
-        **Psychological Factors:**
-        - **Loss aversion** - Daniel Kahneman's Nobel Prize-winning research shows losses hurt ~2-3x more than equivalent gains feel good
-        - **Risk tolerance** - varies with your net worth and financial security
-        - **Opportunity cost** - what you give up by taking reduced cash compensation
-
-        **Time Value:**
-        - **Net Present Value** - discounting future money to today's dollars
-        - **Years to liquidity** - startups typically take 5-7 years to exit
-        - **Compound growth** - tax-free retirement accounts growing for 20+ years
-
-        This tool synthesizes all these factors into clear visualizations so you can see exactly what exit multiple you need to break even, and what the risk-adjusted expected value really is.
-        """
-            ),
-            "Understanding Loss Aversion (Kahneman's Nobel Prize Work)": mo.md(
-                r"""
-        In 2002, Daniel Kahneman won the Nobel Prize in Economics for Prospect Theory, which fundamentally changed how we understand decision-making under risk.
-
-        **The Core Finding:**
-
-        Losses loom larger than gains. The pain of losing $1,000 is psychologically more powerful than the pleasure of gaining $1,000. Specifically, you need to gain roughly **2.5x as much** to offset the psychological impact of a loss.
-
-        **Practical Examples:**
-
-        - Would you play a game with 50% chance to win $1,100 and 50% chance to lose $1,000?
-          - **Expected value**: +$50 (rational to play)
-          - **Most people refuse** - the potential loss feels too painful
-
-        - Would you play a game with 50% chance to win $2,500 and 50% chance to lose $1,000?
-          - **Expected value**: +$750
-          - **Most people accept** - the gain is large enough to compensate for loss aversion
-
-        **Why This Matters for Startup Offers:**
-
-        If you're taking a $200k/year pay cut to join a startup, you're experiencing a *guaranteed loss* right now. Your equity needs to be worth much more than $200k/year in expected value to rationally compensate for this certain loss.
-
-        The multiplier depends on your net worth:
-        - **Low net worth (<$250k)**: Need ~3x to compensate (can't afford losses)
-        - **Medium net worth ($250k-$1M)**: Need ~2.5x (Kahneman's baseline)
-        - **High net worth ($1M-$3M)**: Need ~2x (comfortable but cautious)
-        - **Very high net worth (>$3M)**: Need ~1.5x (can afford risk)
-
-        The curve below shows your personal loss aversion based on your net worth.
-        """
-            ),
-        }
-    )
+def _():
     return
 
 
@@ -307,22 +229,20 @@ def _(mo):
         label="Custom Multiplier", value=2.5, start=1.0, stop=5.0, step=0.1
     )
 
-    mo.accordion(
-        {
-            "## Your Financial Profile": mo.vstack(
+    mo.vstack(
+        [
+            mo.md("""## Your Financial Profile
+
+    Enter your current net worth to calculate your personal loss aversion multiplier.
+    Optionally, override with a custom multiplier if you have a different risk tolerance."""),
+            mo.hstack(
                 [
-                    mo.md("""Enter your current net worth to calculate your personal loss aversion multiplier.
-                Optionally, override with a custom multiplier if you have a different risk tolerance."""),
-                    mo.hstack(
-                        [
-                            current_net_worth,
-                            use_custom_multiplier,
-                            custom_multiplier_input,
-                        ]
-                    ),
+                    current_net_worth,
+                    use_custom_multiplier,
+                    custom_multiplier_input,
                 ]
-            )
-        }
+            ),
+        ]
     )
     return current_net_worth, custom_multiplier_input, use_custom_multiplier
 
@@ -364,7 +284,43 @@ def _(
         current_net_worth.value,
         custom_multiplier_input.value if use_custom_multiplier.value else None,
     )
-    mo.accordion({"## Loss Aversion Curve": mo.ui.plotly(kahneman_fig)})
+    mo.vstack([
+        mo.md("## Loss Aversion Curve"),
+        mo.ui.plotly(kahneman_fig),
+        mo.accordion({
+            "Understanding Loss Aversion (Kahneman's Nobel Prize Work)": mo.md(
+                r"""
+        In 2002, Daniel Kahneman won the Nobel Prize in Economics for Prospect Theory, which fundamentally changed how we understand decision-making under risk.
+
+        **The Core Finding:**
+
+        Losses loom larger than gains. The pain of losing $1,000 is psychologically more powerful than the pleasure of gaining $1,000. Specifically, you need to gain roughly **2.5x as much** to offset the psychological impact of a loss.
+
+        **Practical Examples:**
+
+        - Would you play a game with 50% chance to win $1,100 and 50% chance to lose $1,000?
+          - **Expected value**: +$50 (rational to play)
+          - **Most people refuse** - the potential loss feels too painful
+
+        - Would you play a game with 50% chance to win $2,500 and 50% chance to lose $1,000?
+          - **Expected value**: +$750
+          - **Most people accept** - the gain is large enough to compensate for loss aversion
+
+        **Why This Matters for Startup Offers:**
+
+        If you're taking a $200k/year pay cut to join a startup, you're experiencing a *guaranteed loss* right now. Your equity needs to be worth much more than $200k/year in expected value to rationally compensate for this certain loss.
+
+        The multiplier depends on your net worth:
+        - **Low net worth (<$250k)**: Need ~3x to compensate (can't afford losses)
+        - **Medium net worth ($250k-$1M)**: Need ~2.5x (Kahneman's baseline)
+        - **High net worth ($1M-$3M)**: Need ~2x (comfortable but cautious)
+        - **Very high net worth (>$3M)**: Need ~1.5x (can afford risk)
+
+        The curve above shows your personal loss aversion based on your net worth.
+        """
+            )
+        })
+    ])
     return
 
 
@@ -670,7 +626,7 @@ def _(mo):
     exit_multipliers_input = mo.ui.array(
         [
             mo.ui.number(
-                label=f"Scenario {i + 1} (Multiple)", value=val, start=0.1, step=0.5
+                label=f"Scenario {i + 1} (Multiple)", value=val, start=0.1, step=1
             )
             for i, val in enumerate([2, 5, 10, 20])
         ]
@@ -821,46 +777,6 @@ def _(
 @app.cell
 def _(mo):
     mo.md(r"""---""")
-    mo.md(
-        r"""
-        ## Results
-
-        The analysis below shows four key perspectives:
-
-        1. **NPV Comparison**: Simple comparison if exit happens vs staying
-        2. **Probability-Weighted**: Expected value accounting for failure risk
-        3. **Break-Even Analysis**: What exit multiple you need to match current job (and loss-adjusted)
-        4. **After-Tax Equity Value**: What you actually take home after taxes and exercise costs
-        """
-    )
-    return
-
-
-@app.cell
-def _(
-    current_comp,
-    current_npv,
-    final_equity_pct,
-    financial_params,
-    mo,
-    startup_offer,
-    total_dilution,
-):
-    mo.accordion(
-        {
-            "Summary": mo.md(f"""
-    **Current Position**
-    - Total Compensation: ${current_comp.total_cash_comp:,.0f}/year (with growth)
-    - NPV over {financial_params.years_to_exit} years: ${current_npv:,.0f}
-    - Annual Cash Differential: ${current_comp.total_cash_comp - startup_offer.total_cash_comp:,.0f}
-
-    **Startup Equity**
-    - Initial Ownership: {startup_offer.initial_equity_percentage:.3f}%
-    - After {total_dilution.value}% Dilution: {final_equity_pct:.3f}%
-    - Exercise Cost: ${startup_offer.exercise_cost:,.0f}
-    """)
-        }
-    )
     return
 
 
@@ -1016,7 +932,6 @@ def _(
     final_equity_pct,
     financial_params,
     kahneman_multiplier,
-    mo,
     pl,
     startup_cash_npv,
     startup_offer,
@@ -1048,14 +963,6 @@ def _(
             ],
         }
     )
-
-    mo.accordion(
-        {
-            "Detailed NPV Analysis": mo.vstack(
-                [mo.ui.plotly(npv_fig), mo.ui.table(_scenario_df.to_pandas())]
-            )
-        }
-    )
     return
 
 
@@ -1063,7 +970,7 @@ def _(
 def _(kahneman_multiplier, mo):
     mo.md(
         f"""
-    ## Analysis Summary
+    ## Results
 
     The heatmap shows whether the startup offer is rational at different exit scenarios:
 
