@@ -21,19 +21,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Install marimo
-        run: uv pip install --system marimo polars plotly numpy starlette
-
       - name: Validate notebook
-        run: marimo check notebook.py
+        run: uvx marimo@0.16.3 check notebook.py
 
   build:
     needs: validate
@@ -42,21 +34,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Install marimo and dependencies
-        run: |
-          uv pip install --system marimo polars plotly numpy
-          uv pip install --system starlette
-
       - name: Export notebook as WASM app
-        run: marimo export html-wasm notebook.py -o dist --mode run
+        run: uvx marimo@0.16.3 export html-wasm notebook.py -o dist --mode run
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
