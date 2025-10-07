@@ -28,6 +28,7 @@ def _():
     from dataclasses import dataclass
     from typing import List, Tuple
     from decimal import Decimal
+
     return List, Tuple, dataclass, go, make_subplots, mo, np, pl
 
 
@@ -148,6 +149,7 @@ def _(dataclass):
         @property
         def final_ownership_multiplier(self) -> float:
             return 1 - (self.total_dilution_pct / 100)
+
     return (
         CurrentCompensation,
         ExitScenario,
@@ -205,6 +207,7 @@ def _(go, np):
         )
 
         return fig
+
     return calculate_kahneman_multiplier, create_kahneman_curve
 
 
@@ -288,12 +291,14 @@ def _(
         current_net_worth.value,
         custom_multiplier_input.value if use_custom_multiplier.value else None,
     )
-    mo.vstack([
-        mo.md("## Loss Aversion Curve"),
-        mo.ui.plotly(kahneman_fig),
-        mo.accordion({
-            "Understanding Loss Aversion (Kahneman's Nobel Prize Work)": mo.md(
-                r"""
+    mo.vstack(
+        [
+            mo.md("## Loss Aversion Curve"),
+            mo.ui.plotly(kahneman_fig),
+            mo.accordion(
+                {
+                    "Understanding Loss Aversion (Kahneman's Nobel Prize Work)": mo.md(
+                        r"""
         In 2002, Daniel Kahneman won the Nobel Prize in Economics for Prospect Theory, which fundamentally changed how we understand decision-making under risk.
 
         **The Core Finding:**
@@ -322,9 +327,11 @@ def _(
 
         The curve above shows your personal loss aversion based on your net worth.
         """
-            )
-        })
-    ])
+                    )
+                }
+            ),
+        ]
+    )
     return
 
 
@@ -641,7 +648,12 @@ def _(mo):
     )
 
     years_to_exit = mo.ui.slider(
-        label="Years to Exit (typical vesting horizon)", start=1, stop=10, step=1, value=4, show_value=True
+        label="Years to Exit (typical vesting horizon)",
+        start=1,
+        stop=10,
+        step=1,
+        value=4,
+        show_value=True,
     )
 
     income_tax_rate = mo.ui.slider(
@@ -649,7 +661,12 @@ def _(mo):
     )
 
     capital_gains_tax_rate = mo.ui.slider(
-        label="Capital Gains Tax Rate (%)", start=0, stop=40, step=1, value=23.8, show_value=True
+        label="Capital Gains Tax Rate (%)",
+        start=0,
+        stop=40,
+        step=1,
+        value=23.8,
+        show_value=True,
     )
 
     discount_rate = mo.ui.slider(
@@ -659,7 +676,14 @@ def _(mo):
     mo.accordion(
         {
             "## Financial Assumptions": mo.vstack(
-                [exit_multipliers_input, total_dilution, years_to_exit, income_tax_rate, capital_gains_tax_rate, discount_rate]
+                [
+                    exit_multipliers_input,
+                    total_dilution,
+                    years_to_exit,
+                    income_tax_rate,
+                    capital_gains_tax_rate,
+                    discount_rate,
+                ]
             )
         }
     )
@@ -767,6 +791,7 @@ def _(ExitScenario, List, Tuple):
         startup_401k_fv = startup_offer.total_401k_benefit * fv_factor
 
         return current_401k_fv, startup_401k_fv, current_401k_fv - startup_401k_fv
+
     return calculate_exit_scenarios, calculate_retirement_benefits
 
 
@@ -953,6 +978,7 @@ def _(go, make_subplots, np):
         )
 
         return fig
+
     return (create_npv_visualizations,)
 
 
@@ -1023,7 +1049,7 @@ def _(
             _current_note = "Base"
         else:
             _current_year = current_comp.total_cash_comp * (1 + _raise_pct) ** (t - 1)
-            _current_note = f"{_raise_pct*100:.0f}% annual"
+            _current_note = f"{_raise_pct * 100:.0f}% annual"
 
         _current_after_tax = _current_year * (1 - _income_tax)
         _current_pv = _current_after_tax / (1 + _discount_rate) ** t
@@ -1037,26 +1063,34 @@ def _(
         _startup_after_tax = _startup_year * (1 - _income_tax)
         _startup_pv = _startup_after_tax / (1 + _discount_rate) ** t
 
-        _table_rows.append({
-            "Year": t,
-            "Current (pre-tax)": f"${_current_year:,.0f}",
-            "Growth": _current_note,
-            "Current (after tax)": f"${_current_after_tax:,.0f}",
-            "Current PV": f"${_current_pv:,.0f}",
-            "Startup (pre-tax)": f"${_startup_year:,.0f}",
-            "Startup (after tax)": f"${_startup_after_tax:,.0f}",
-            "Startup PV": f"${_startup_pv:,.0f}",
-            "Diff (PV)": f"${_current_pv - _startup_pv:+,.0f}",
-        })
+        _table_rows.append(
+            {
+                "Year": t,
+                "Current (pre-tax)": f"${_current_year:,.0f}",
+                "Growth": _current_note,
+                "Current (after tax)": f"${_current_after_tax:,.0f}",
+                "Current PV": f"${_current_pv:,.0f}",
+                "Startup (pre-tax)": f"${_startup_year:,.0f}",
+                "Startup (after tax)": f"${_startup_after_tax:,.0f}",
+                "Startup PV": f"${_startup_pv:,.0f}",
+                "Diff (PV)": f"${_current_pv - _startup_pv:+,.0f}",
+            }
+        )
 
     _comp_table_df = pl.DataFrame(_table_rows)
 
-    mo.vstack([
-        mo.md("## Compensation Summary"),
-        mo.md(f"**Tax:** {_income_tax * 100:.0f}% | **Discount:** {_discount_rate * 100:.1f}% | **Years:** {_years}"),
-        mo.ui.table(_comp_table_df.to_pandas()),
-        mo.md(f"**Total Current NPV:** ${current_npv:,.0f} | **Startup Liquid Compensation NPV:** ${startup_cash_npv:,.0f} | **Diff:** ${current_npv - startup_cash_npv:+,.0f}")
-    ])
+    mo.vstack(
+        [
+            mo.md("## Compensation Summary"),
+            mo.md(
+                f"**Tax:** {_income_tax * 100:.0f}% | **Discount:** {_discount_rate * 100:.1f}% | **Years:** {_years}"
+            ),
+            mo.ui.table(_comp_table_df.to_pandas()),
+            mo.md(
+                f"**Total Current NPV:** ${current_npv:,.0f} | **Startup Liquid Compensation NPV:** ${startup_cash_npv:,.0f} | **Diff:** ${current_npv - startup_cash_npv:+,.0f}"
+            ),
+        ]
+    )
     return
 
 
@@ -1259,6 +1293,7 @@ def _(go, np):
         )
 
         return fig
+
     return (create_breakeven_3d_surface,)
 
 
@@ -1339,11 +1374,21 @@ def _(go):
                 failure_outcome = failure_npv - current_npv
 
                 # Apply value function
-                success_value = success_outcome if success_outcome >= 0 else success_outcome * kahneman_multiplier
-                failure_value = failure_outcome if failure_outcome >= 0 else failure_outcome * kahneman_multiplier
+                success_value = (
+                    success_outcome
+                    if success_outcome >= 0
+                    else success_outcome * kahneman_multiplier
+                )
+                failure_value = (
+                    failure_outcome
+                    if failure_outcome >= 0
+                    else failure_outcome * kahneman_multiplier
+                )
 
                 # Expected prospect value
-                loss_adjusted_growth = prob_pct * success_value + (1 - prob_pct) * failure_value
+                loss_adjusted_growth = (
+                    prob_pct * success_value + (1 - prob_pct) * failure_value
+                )
 
                 # Simple expected NPV for comparison
                 expected_npv = prob_pct * success_npv + (1 - prob_pct) * failure_npv
@@ -1360,7 +1405,7 @@ def _(go):
                     f"  Total: ${success_npv / 1e6:.2f}M<br>"
                     f"  vs Current job: ${current_npv / 1e6:.2f}M<br>"
                     f"  → Gain/Loss: ${success_outcome / 1e6:+.2f}M<br><br>"
-                    f"<b>If Failure ({100-prob}%):</b><br>"
+                    f"<b>If Failure ({100 - prob}%):</b><br>"
                     f"  Equity NPV: $0.00M<br>"
                     f"  Startup salary NPV: ${startup_cash_npv / 1e6:.2f}M<br>"
                     f"  Total: ${failure_npv / 1e6:.2f}M<br>"
@@ -1414,19 +1459,8 @@ def _(go):
         )
 
         return fig
+
     return (create_breakeven_heatmap,)
-
-
-@app.cell
-def _(mo):
-    mo.md(
-        r"""
-    ### Breakeven Probability Analysis
-
-    The table below shows what exit probability you need at each valuation multiple to make the startup offer rational.
-    """
-    )
-    return
 
 
 @app.function
