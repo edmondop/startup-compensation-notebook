@@ -533,7 +533,8 @@ def _(
         **Note:** Your spread at exercise is $0 because strike price equals current FMV. This means:
         - You pay ${:,.0f} to exercise (strike price × shares)
         - You receive shares currently worth ${:,.0f} (FMV × shares)
-        - **No immediate paper gain**, but you lock in the right to buy at ${:.2f}/share forever
+        - **No immediate paper gain**, but you lock in the right to buy at ${:.2f}/share for a certain amount of time
+        - **Be careful about the exercise clause**: some startups force you to exercise within a certain time from the assignment, or your last work day
         - **Value comes from future growth**: If the company exits at 10x, your shares become worth ${:,.0f}M while you still only pay ${:,.0f}k to exercise
         """.format(
             startup_offer.exercise_cost,
