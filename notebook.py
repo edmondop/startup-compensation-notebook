@@ -533,7 +533,8 @@ def _(
         **Note:** Your spread at exercise is $0 because strike price equals current FMV. This means:
         - You pay ${:,.0f} to exercise (strike price × shares)
         - You receive shares currently worth ${:,.0f} (FMV × shares)
-        - **No immediate paper gain**, but you lock in the right to buy at ${:.2f}/share forever
+        - **No immediate paper gain**, but you lock in the right to buy at ${:.2f}/share for a certain amount of time, up to the legal maximum of 10 year. Option grants always expire
+        - **Be careful about the exercise clause**: most companies require you to exercise within a short time after you leave the company, even vested option. A typical window is 30-90 days, with most generous employers providing up to 10 years
         - **Value comes from future growth**: If the company exits at 10x, your shares become worth ${:,.0f}M while you still only pay ${:,.0f}k to exercise
         """.format(
             startup_offer.exercise_cost,
